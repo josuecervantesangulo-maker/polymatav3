@@ -417,8 +417,36 @@ textarea{resize:vertical;min-height:70px}
 <div class="screen" id="sc-cardio"><div class="si">
   <div class="sec-title">Cardio<em>logía</em></div>
   <div class="sec-sub">Tu área principal · Mantenerse en el top 10%</div>
-  <div class="form-row"><span class="lbl">Libro actual</span><input id="cardioBook" placeholder="Ej: Braunwald's Heart Disease..." oninput="saveCardio()"></div>
-  <div class="form-row"><span class="lbl">Área / tema en curso</span><input id="cardioArea" placeholder="Ej: Insuficiencia cardíaca, ECG..." oninput="saveCardio()"></div>
+  <!-- ISBN LOOKUP -->
+  <div class="card" style="border-left:3px solid var(--purple);margin-bottom:12px">
+    <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px">Buscar libro por ISBN-10</div>
+    <div style="display:flex;gap:8px;margin-bottom:5px">
+      <input id="cardioIsbn" placeholder="Ej: 1416061738" style="flex:1" oninput="this.value=this.value.replace(/[^0-9Xx]/g,'').slice(0,10)">
+      <button class="btn btn-gold btn-sm" id="cardioIsbnBtn" onclick="fetchCardioIsbn()">Buscar</button>
+    </div>
+    <div id="cardioIsbnStatus" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--td);min-height:14px"></div>
+    <div id="cardioIsbnResult" style="display:none;margin-top:10px;flex-direction:row;gap:12px;align-items:flex-start">
+      <div id="cardioIsbnCoverWrap" style="width:60px;height:90px;border-radius:7px;overflow:hidden;background:var(--s2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px">?</div>
+      <div style="flex:1">
+        <div id="cardioIsbnTitle" style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px"></div>
+        <div id="cardioIsbnAuthor" style="font-size:11px;color:var(--td);margin-bottom:8px"></div>
+        <button class="btn btn-gold btn-sm" onclick="applyCardioIsbn()">Usar este libro</button>
+      </div>
+    </div>
+  </div>
+  <!-- BOOK + COVER -->
+  <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">
+    <div id="cardioCoverWrap" style="width:70px;height:105px;border-radius:9px;overflow:hidden;background:var(--s2);flex-shrink:0;border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer" onclick="document.getElementById('cardioCoverFile').click()">
+      <img id="cardioCoverImg" src="" style="display:none;width:100%;height:100%;object-fit:cover">
+      <span id="cardioCoverEmoji">&#128218;</span>
+    </div>
+    <input type="file" id="cardioCoverFile" accept="image/*" style="display:none" onchange="setCardioCover(event)">
+    <div style="flex:1">
+      <div class="form-row"><span class="lbl">Libro actual</span><input id="cardioBook" placeholder="Braunwald's Heart Disease..." oninput="saveCardio()"></div>
+      <div class="form-row" style="margin:0"><span class="lbl">Autor</span><input id="cardioAuthor" placeholder="Autor..." oninput="saveCardio()"></div>
+    </div>
+  </div>
+  <div class="form-row"><span class="lbl">Area / tema en curso</span><input id="cardioArea" placeholder="Ej: Insuficiencia cardiaca, ECG..." oninput="saveCardio()"></div>
   <div class="form-row"><span class="lbl">Curso online</span><input id="cardioOnline" placeholder="Ej: ESC Online Learning..." oninput="saveCardio()"></div>
   <div class="div"></div>
   <div class="sl">Protocolo por tipo de día</div>
@@ -1224,6 +1252,9 @@ function goScreen(n,btn){
   document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
   document.getElementById('sc-'+n).classList.add('active');
   if(btn)btn.classList.add('active');
+  if(n==='stats')setTimeout(renderStats,50);
+  if(n==='pomo')setTimeout(renderPomoHistory,50);
+  if(n==='backup')updateBackupScreen();
 }
 function swTab(g,n,btn){
   const p=g+'-';
@@ -1618,19 +1649,42 @@ function saveSong(){
   showToast('🎵 Canción agregada');
 }
 function renderSongs(){
-  const el=document.getElementById('songList');
-  if(!state.songs.length){el.innerHTML=`<div class="empty-state"><span class="empty-icon">🎵</span>Sin canciones</div>`;return;}
-  el.innerHTML=state.songs.map((s,i)=>`
-    <div style="background:var(--s1);border:1px solid var(--b1);border-radius:var(--radius);overflow:hidden;margin-bottom:8px">
-      ${s.yt&&ytThumb(s.yt)?`<div style="position:relative;cursor:pointer;height:110px;overflow:hidden" onclick="window.open('${s.yt}','_blank')"><img src="${ytThumb(s.yt)}" style="width:100%;height:100%;object-fit:cover"><div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.7),transparent);display:flex;align-items:flex-end;padding:10px"><div style="font-size:13px;font-weight:500;color:var(--text)">${s.title}</div></div><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.7);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:18px">▶</div></div>`:''}
-      <div style="padding:10px 12px">
-        ${!s.yt?`<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:3px">${s.title}</div>`:''}<div style="font-size:11px;color:var(--td);margin-bottom:6px">${s.artist}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill p-amber">${s.inst}</span><span class="sb ${s.status==='learned'?'sb-done':'sb-watching'}">${s.status==='learned'?'✅ Aprendida':'🎵 En proceso'}</span></div>
-          <button class="btn-del" onclick="delById('songs',${s.id});renderSongs()">🗑</button>
-        </div>
-      </div>
-    </div>`).join('');
+  var el=document.getElementById('songList');if(!el)return;
+  if(!state.songs.length){
+    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--tm);font-size:13px">Sin canciones registradas</div>';
+    return;
+  }
+  var html='';
+  state.songs.forEach(function(s){
+    var embedUrl = s.yt ? ytEmbed(s.yt) : null;
+    var thumb = s.yt ? ytThumb(s.yt) : null;
+    html += '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:var(--radius);overflow:hidden;margin-bottom:8px">';
+    if(embedUrl){
+      html += '<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden">';
+      html += '<iframe src="'+embedUrl+'" allowfullscreen loading="lazy" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none"></iframe>';
+      html += '</div>';
+    } else if(thumb){
+      html += '<div style="position:relative;height:100px;overflow:hidden;cursor:pointer" onclick="window.open(\''+s.yt+'\',\'_blank\')">';
+      html += '<img src="'+thumb+'" style="width:100%;height:100%;object-fit:cover">';
+      html += '<div style="position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:28px">&#9654;</div>';
+      html += '</div>';
+    }
+    html += '<div style="padding:10px 12px">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
+    html += '<div><div style="font-size:13px;font-weight:500;color:var(--text)">'+s.title+'</div>';
+    html += '<div style="font-size:11px;color:var(--td);margin-bottom:5px">'+s.artist+'</div>';
+    html += '<div style="display:flex;gap:5px;flex-wrap:wrap">';
+    html += '<span style="background:var(--amberbg);color:var(--amber);border:1px solid var(--amberb);padding:3px 9px;border-radius:6px;font-size:11px">'+s.inst+'</span>';
+    html += '<span style="background:'+(s.status==='learned'?'var(--bluebg)':'var(--amberbg)')+';color:'+(s.status==='learned'?'var(--blue)':'var(--amber)')+';border:1px solid '+(s.status==='learned'?'var(--blueb)':'var(--amberb)')+';padding:2px 8px;border-radius:4px;font-size:8px;letter-spacing:1px">'+(s.status==='learned'?'Aprendida':'En proceso')+'</span>';
+    html += '</div></div>';
+    html += '<button class="btn-del" data-sid="'+s.id+'" onclick="delSong(this)">&#128465;</button>';
+    html += '</div></div></div>';
+  });
+  el.innerHTML=html;
+}
+function delSong(btn){
+  var id=parseInt(btn.getAttribute('data-sid'));
+  delById('songs',id);renderSongs();
 }
 
 // ══ VIDEOS ══
@@ -1643,12 +1697,35 @@ function saveVid(){
   save();renderAllVids();closeM('vidModal');showToast('📹 Video agregado');
 }
 function vidCardHtml(v,delPath){
-  const thumb=v.type==='yt'?ytThumb(v.url):null;
-  return`<div class="yt-card" onclick="window.open('${v.url}','_blank')">
-    ${thumb?`<div class="yt-thumb"><img src="${thumb}" loading="lazy"><div class="yt-play">▶</div></div>`:`<div style="padding:14px;background:var(--s2);display:flex;align-items:center;gap:10px"><span style="font-size:24px">🌐</span><div style="font-size:10px;color:var(--td);word-break:break-all">${v.url}</div></div>`}
-    <div class="yt-info"><div><div class="yt-title">${v.title}</div>${v.topic?`<div class="yt-tag">${v.topic}</div>`:''}</div>
-    <button class="btn-del" onclick="event.stopPropagation();delById('${delPath}',${v.id});renderAllVids()">🗑</button></div>
-  </div>`;
+  var thumb = v.type==='yt' ? ytThumb(v.url) : null;
+  var embedUrl = v.type==='yt' ? ytEmbed(v.url) : null;
+  var html = '<div style="background:var(--s1);border:1px solid var(--b1);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:8px">';
+  if(embedUrl){
+    html += '<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden">';
+    html += '<iframe src="'+embedUrl+'" allowfullscreen loading="lazy" style="position:absolute;top:0;left:0;width:100%;height:100%;border:none"></iframe>';
+    html += '</div>';
+  } else if(thumb){
+    html += '<div style="height:90px;overflow:hidden;cursor:pointer;position:relative" onclick="window.open(\''+v.url+'\',\'_blank\')">';
+    html += '<img src="'+thumb+'" style="width:100%;height:100%;object-fit:cover" loading="lazy">';
+    html += '<div style="position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:22px">&#9654;</div>';
+    html += '</div>';
+  } else if(v.url){
+    html += '<div style="padding:10px 12px;background:var(--s2);cursor:pointer;display:flex;align-items:center;gap:8px" onclick="window.open(\''+v.url+'\',\'_blank\')">';
+    html += '<span style="font-size:18px">&#127760;</span><div style="font-size:11px;color:var(--td);word-break:break-all">'+v.url+'</div>';
+    html += '</div>';
+  }
+  html += '<div style="padding:9px 12px;display:flex;justify-content:space-between;align-items:flex-start;gap:8px">';
+  html += '<div><div style="font-size:12px;color:var(--text)">'+v.title+'</div>';
+  if(v.topic) html += '<div style="font-family:monospace;font-size:9px;color:var(--td)">'+v.topic+'</div>';
+  html += '</div>';
+  html += '<button class="btn-del" data-delpath="'+delPath+'" data-vid="'+v.id+'" onclick="delVidCard(this)">&#128465;</button>';
+  html += '</div></div>';
+  return html;
+}
+function delVidCard(btn){
+  var path=btn.getAttribute('data-delpath');
+  var id=parseInt(btn.getAttribute('data-vid'));
+  delById(path,id);renderAllVids();renderSciVids();
 }
 function delById(path,id){
   const parts=path.split('.');
@@ -1695,7 +1772,14 @@ function renderGallery(){
 function viewImg(src){document.getElementById('imgViewerSrc').src=src;document.getElementById('imgViewer').style.display='flex';}
 
 // ══ CARDIO / MATH / LANG ══
-function saveCardio(){state.cardioBook=document.getElementById('cardioBook').value;state.cardioArea=document.getElementById('cardioArea').value;state.cardioOnline=document.getElementById('cardioOnline').value;save();}
+function saveCardio(){
+  state.cardioBook=document.getElementById('cardioBook').value;
+  var authorEl=document.getElementById('cardioAuthor');if(authorEl)state.cardioAuthor=authorEl.value;
+  state.cardioArea=document.getElementById('cardioArea').value;
+  state.cardioOnline=document.getElementById('cardioOnline').value;
+  var notesEl=document.getElementById('cardioNotes');if(notesEl)state.cardioNotes=notesEl.value;
+  save();
+}
 function saveMath(){state.mathBook=document.getElementById('mathBook').value;state.mathArea=document.getElementById('mathArea').value;save();}
 function saveSci(){
   const fields=['fisBook','fisArea','quiBook','quiArea','progBook','progArea','progProject'];
@@ -1793,6 +1877,8 @@ function importBackup(e){
       renderWeek();renderStreak();updateDayChip();updateBackupScreen();
       // Restore inputs
       if(state.cardioBook)document.getElementById('cardioBook').value=state.cardioBook;
+  var authorEl=document.getElementById('cardioAuthor');if(authorEl&&state.cardioAuthor)authorEl.value=state.cardioAuthor;
+  if(typeof showCardioCover==='function')showCardioCover();
       if(state.cardioArea)document.getElementById('cardioArea').value=state.cardioArea;
       if(state.cardioOnline)document.getElementById('cardioOnline').value=state.cardioOnline;
       if(state.mathBook)document.getElementById('mathBook').value=state.mathBook;
@@ -1930,10 +2016,350 @@ function delWeight(btn){
 const _gs = goScreen;
 goScreen = function(n,btn){_gs(n,btn);if(n==='stats')setTimeout(renderStats,50);if(n==='pomo')renderPomoHistory();};
 
+
+// ══ POMODORO ══
+let PS={running:false,minutes:45,total:45*60,elapsed:0,isBreak:false,sessionsToday:0};
+let PI=null;
+
+function setPomoTime(mins,btn){
+  if(PS.running)return;
+  PS.minutes=mins;PS.total=mins*60;PS.elapsed=0;PS.isBreak=false;
+  const presets=document.getElementById('pomoPresets');
+  if(presets)presets.querySelectorAll('button').forEach(function(b){
+    b.style.background='none';b.style.borderColor='var(--b1)';b.style.color='var(--td)';
+  });
+  if(btn){btn.style.background='var(--goldsft)';btn.style.borderColor='var(--gold2)';btn.style.color='var(--gold)';}
+  updPomo();
+}
+
+function updPomo(){
+  var rem=Math.max(PS.total-PS.elapsed,0);
+  var m=Math.floor(rem/60);var s=rem%60;
+  var ts=(m<10?'0'+m:m)+':'+(s<10?'0'+s:s);
+  var el=document.getElementById('pomoDisplay');if(el)el.textContent=ts;
+  var pct=PS.total>0?PS.elapsed/PS.total:0;
+  var fill=document.getElementById('pomoRingFill');
+  if(fill){fill.style.strokeDashoffset=440*(1-pct);fill.style.stroke=PS.isBreak?'var(--green)':'var(--gold)';}
+  var lbl=document.getElementById('pomoLabel');
+  if(lbl)lbl.textContent=PS.isBreak?'DESCANSO':(PS.running?'ENFOCADO':'LISTO');
+  var btn=document.getElementById('pomoPlayBtn');
+  if(btn)btn.innerHTML=PS.running?'&#9646;&#9646;':'&#9654;';
+  var sc=document.getElementById('pomoSessions');
+  if(sc)sc.textContent='Sesiones hoy: '+PS.sessionsToday;
+}
+
+function pomoToggle(){
+  if(!PS.running&&PS.elapsed>=PS.total){pomoPrev();return;}
+  PS.running=!PS.running;
+  if(PS.running){
+    PI=setInterval(function(){
+      PS.elapsed++;
+      if(PS.elapsed>=PS.total){
+        clearInterval(PI);PS.running=false;
+        if(!PS.isBreak){
+          PS.sessionsToday++;
+          if(!state.pomoSessions)state.pomoSessions=[];
+          var area=document.getElementById('pomoArea')?document.getElementById('pomoArea').value:'General';
+          state.pomoSessions.push({id:Date.now(),area:area,minutes:PS.minutes,date:new Date().toISOString()});
+          save();renderPomoHistory();
+          showToast('Sesion completada! Pomodoro #'+PS.sessionsToday);
+          PS.isBreak=true;PS.total=5*60;PS.elapsed=0;
+        }else{
+          PS.isBreak=false;PS.total=PS.minutes*60;PS.elapsed=0;
+          showToast('Descanso terminado - a trabajar!');
+        }
+      }
+      updPomo();
+    },1000);
+  }else{clearInterval(PI);}
+  updPomo();
+}
+
+function pomoPrev(){clearInterval(PI);PS.running=false;PS.elapsed=0;PS.isBreak=false;PS.total=PS.minutes*60;updPomo();}
+function pomoSkip(){clearInterval(PI);PS.running=false;PS.elapsed=PS.total;updPomo();}
+
+function renderPomoHistory(){
+  var el=document.getElementById('pomoHistory');if(!el)return;
+  if(!state.pomoSessions)state.pomoSessions=[];
+  var today=new Date().toISOString().slice(0,10);
+  var ts=state.pomoSessions.filter(function(s){return s.date&&s.date.slice(0,10)===today;});
+  if(!ts.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--tm);font-size:13px">Sin sesiones hoy - inicia una!</div>';return;}
+  var html='';
+  ts.slice().reverse().forEach(function(s){
+    html+='<div style="display:flex;align-items:center;gap:12px;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:11px;margin-bottom:6px">';
+    html+='<div style="font-family:serif;font-size:22px;color:var(--gold);width:46px;text-align:center;flex-shrink:0">'+s.minutes+'m</div>';
+    html+='<div style="flex:1"><div style="font-size:13px;color:var(--text)">'+s.area+'</div>';
+    html+='<div style="font-size:9px;color:var(--tm)">'+new Date(s.date).toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'})+'</div></div>';
+    html+='<span style="background:var(--bluebg);color:var(--blue);border:1px solid var(--blueb);padding:2px 8px;border-radius:4px;font-size:8px;letter-spacing:1px">OK</span>';
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+// ══ STATS ══
+function renderStats(){
+  if(!state.weekData)return;
+  var wk=getMondayKey(0);var wd=state.weekData[wk]||{};
+  var sH={pesado:1,medio:3,libre:4};
+  var ts=0,te=0,ad=0;
+  Object.values(wd).forEach(function(t){if(t){ad++;ts+=sH[t]||0;te+=t==='pesado'?.5:1;}});
+  var today=new Date().toISOString().slice(0,10);
+  if(!state.pomoSessions)state.pomoSessions=[];
+  var tp=state.pomoSessions.filter(function(s){return s.date&&s.date.slice(0,10)===today;}).length;
+  var ids=['statDays','statHours','statPomo','statEx'];
+  var vals=[ad,ts+'h',tp,Math.round(te)];
+  ids.forEach(function(id,i){var e=document.getElementById(id);if(e)e.textContent=vals[i];});
+  var sB=document.getElementById('statBooks');if(sB)sB.textContent=state.books.filter(function(b){return b.status==='terminado';}).length;
+  var sF=document.getElementById('statFilms');if(sF)sF.textContent=state.films.filter(function(f){return f.status==='terminado';}).length;
+  var sG=document.getElementById('statGames');if(sG)sG.textContent=state.games.filter(function(g){return g.status==='completado';}).length;
+  var sS=document.getElementById('statSongs');if(sS)sS.textContent=state.songs.filter(function(s){return s.status==='learned';}).length;
+  var chart=document.getElementById('statsChart');if(!chart)return;
+  var mon=getMonday(0);var bars=[];var maxH=4;
+  for(var i=0;i<7;i++){
+    var d=new Date(mon);d.setDate(d.getDate()+i);
+    var dk=d.toISOString().slice(0,10);
+    var type=wd[dk];var h=type?sH[type]:0;
+    bars.push({h:h,active:dk===today});if(h>maxH)maxH=h;
+  }
+  chart.innerHTML=bars.map(function(b){
+    return '<div style="flex:1;display:flex;align-items:flex-end;height:100%"><div style="width:100%;background:var(--gold);border-radius:4px 4px 0 0;opacity:'+(b.active?'1':'.5')+';height:'+Math.max(b.h/maxH*100,3)+'%;min-height:3px"></div></div>';
+  }).join('');
+  renderWeightList();
+}
+
+// ══ WEIGHT ══
+function addWeight(){
+  var val=parseFloat(document.getElementById('weightInput').value);
+  if(!val||val<30||val>300){showToast('Peso invalido');return;}
+  if(!state.weightLog)state.weightLog=[];
+  state.weightLog.unshift({id:Date.now(),kg:val,date:new Date().toISOString()});
+  save();renderWeightList();
+  document.getElementById('weightInput').value='';
+  showToast('Peso: '+val+' kg registrado');
+}
+
+function renderWeightList(){
+  var el=document.getElementById('weightList');if(!el)return;
+  if(!state.weightLog||!state.weightLog.length){
+    el.innerHTML='<div style="text-align:center;padding:14px;color:var(--tm);font-size:13px">Sin registros de peso</div>';return;
+  }
+  var html='';
+  state.weightLog.slice(0,10).forEach(function(w,i){
+    var prev=state.weightLog[i+1];
+    var delta=prev?+(w.kg-prev.kg).toFixed(1):0;
+    var dc=delta>0?'color:var(--red)':delta<0?'color:var(--green)':'color:var(--tm)';
+    var ds=delta===0?'=':(delta>0?'+':'')+delta+'kg';
+    var dateStr=new Date(w.date).toLocaleDateString('es',{day:'numeric',month:'short'});
+    html+='<div style="display:flex;align-items:center;gap:10px;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 12px;margin-bottom:6px">';
+    html+='<div style="font-family:serif;font-size:22px;color:var(--gold);flex-shrink:0">'+w.kg+'<span style="font-size:11px;color:var(--td)">kg</span></div>';
+    html+='<div style="flex:1;font-size:9px;color:var(--tm)">'+dateStr+'</div>';
+    if(prev)html+='<span style="'+dc+';font-size:10px;padding:2px 7px;border-radius:4px;background:var(--s2)">'+ds+'</span>';
+    html+='<button class="btn-del" data-wid="'+w.id+'" onclick="delWeight(this)">&#128465;</button>';
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+
+function delWeight(btn){
+  var id=parseInt(btn.getAttribute('data-wid'));
+  delById('weightLog',id);
+  renderWeightList();
+}
+
+// ══ SEARCH ══
+function searchNav(el){
+  var screen=el.getAttribute('data-screen');
+  var btn=document.getElementById('nav-'+screen);
+  if(screen&&btn)goScreen(screen,btn);
+}
+function doSearch(q){
+  var el=document.getElementById('searchResults');if(!el)return;
+  if(!q||q.length<2){el.innerHTML='';return;}
+  var ql=q.toLowerCase();var results=[];
+  state.books.forEach(function(b){if(b.title.toLowerCase().includes(ql)||b.author.toLowerCase().includes(ql))results.push({icon:'&#128218;',title:b.title,sub:b.author,type:'Libro',screen:'media'});});
+  state.films.forEach(function(f){if(f.title.toLowerCase().includes(ql))results.push({icon:'&#127909;',title:f.title,sub:'Dir. '+f.dir,type:'Pelicula',screen:'media'});});
+  state.series.forEach(function(s){if(s.title.toLowerCase().includes(ql))results.push({icon:'&#128250;',title:s.title,sub:s.dir,type:'Serie',screen:'media'});});
+  state.games.forEach(function(g){if(g.title.toLowerCase().includes(ql))results.push({icon:'&#127918;',title:g.title,sub:g.console,type:'Juego',screen:'media'});});
+  state.songs.forEach(function(s){if(s.title.toLowerCase().includes(ql)||(s.artist&&s.artist.toLowerCase().includes(ql)))results.push({icon:'&#127925;',title:s.title,sub:s.artist,type:'Cancion',screen:'art'});});
+  if(!results.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--tm);font-size:13px">Sin resultados para "'+q+'"</div>';return;}
+  var html='<div style="background:var(--s1);border:1px solid var(--b1);border-radius:14px;overflow:hidden">';
+  results.slice(0,20).forEach(function(r){
+    html+='<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--b1);cursor:pointer" data-screen="'+r.screen+'" onclick="searchNav(this)">';
+    html+='<div style="font-size:18px;flex-shrink:0">'+r.icon+'</div>';
+    html+='<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r.title+'</div>';
+    html+='<div style="font-size:10px;color:var(--td)">'+r.sub+'</div></div>';
+    html+='<div style="font-size:8px;color:var(--tm);flex-shrink:0;font-family:monospace">'+r.type+'</div></div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+// ══ WISHLIST ══
+var wishFilter='all';
+function filterWish(val,btn){
+  wishFilter=val;
+  btn.closest('div').querySelectorAll('.fbtn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  renderWishlist();
+}
+function saveWish(){
+  var w={id:Date.now(),type:document.getElementById('wType').value,title:document.getElementById('wTitle').value.trim(),creator:document.getElementById('wCreator').value.trim(),note:document.getElementById('wNote').value.trim()};
+  if(!w.title)return;
+  if(!state.wishlist)state.wishlist=[];
+  state.wishlist.unshift(w);save();renderWishlist();closeM('wishModal');
+  ['wTitle','wCreator','wNote'].forEach(function(id){document.getElementById(id).value='';});
+  showToast('Agregado a wishlist');
+}
+function renderWishlist(){
+  var el=document.getElementById('wishList');if(!el)return;
+  if(!state.wishlist)state.wishlist=[];
+  var icons={libro:'&#128218;',pelicula:'&#127909;',juego:'&#127918;',serie:'&#128250;'};
+  var names={libro:'Libro',pelicula:'Pelicula',juego:'Juego',serie:'Serie'};
+  var list=wishFilter==='all'?state.wishlist:state.wishlist.filter(function(w){return w.type===wishFilter;});
+  if(!list.length){el.innerHTML='<div style="text-align:center;padding:24px;color:var(--tm);font-size:13px">Tu wishlist esta vacia</div>';return;}
+  var html='';
+  list.forEach(function(w){
+    html+='<div style="display:flex;align-items:center;gap:10px;background:var(--s1);border:1px solid var(--b1);border-radius:10px;padding:10px 12px;margin-bottom:6px">';
+    html+='<div style="font-size:18px;flex-shrink:0">'+(icons[w.type]||'&#11088;')+'</div>';
+    html+='<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+w.title+'</div>';
+    html+='<div style="font-size:10px;color:var(--td)">'+(w.creator||'')+(w.note?' - '+w.note:'')+'</div></div>';
+    html+='<span style="background:var(--s2);color:var(--td);border:1px solid var(--b1);padding:2px 7px;border-radius:4px;font-size:8px;flex-shrink:0">'+(names[w.type]||w.type)+'</span>';
+    html+='<button class="btn-del" data-wid="'+w.id+'" onclick="delWish(this)">&#128465;</button>';
+    html+='</div>';
+  });
+  el.innerHTML=html;
+}
+function delWish(btn){
+  var id=parseInt(btn.getAttribute('data-wid'));
+  delById('wishlist',id);renderWishlist();
+}
+
+// ══ THEME ══
+var darkMode=localStorage.getItem('poly_theme')!=='light';
+function applyTheme(){
+  document.body.classList.toggle('light',!darkMode);
+  var b=document.getElementById('themeBtn');
+  if(b)b.innerHTML=darkMode?'&#9790;':'&#9788;';
+}
+function toggleTheme(){
+  darkMode=!darkMode;
+  localStorage.setItem('poly_theme',darkMode?'dark':'light');
+  applyTheme();
+  showToast(darkMode?'Modo oscuro':'Modo claro');
+}
+
+// Stats/pomo triggered via nav clicks directly
+
+// ══ SCI SAVE ══
+function saveSci(){
+  var fields=['fisBook','fisArea','quiBook','quiArea','progBook','progArea','progProject'];
+  fields.forEach(function(f){var el=document.getElementById(f);if(el)state[f]=el.value;});
+  save();
+}
+
+
+
+// ══ CARDIO ISBN ══
+var cardioIsbnData = null;
+async function fetchCardioIsbn(){
+  var isbn = document.getElementById('cardioIsbn').value.trim().toUpperCase();
+  if(!isbn){showToast('Ingresa un ISBN-10');return;}
+  var btn = document.getElementById('cardioIsbnBtn');
+  var st = document.getElementById('cardioIsbnStatus');
+  btn.textContent='...';btn.disabled=true;
+  st.style.color='var(--td)';st.textContent='Buscando...';
+  cardioIsbnData = null;
+  try{
+    var res = await fetch('https://openlibrary.org/api/books?bibkeys=ISBN:'+isbn+'&format=json&jscmd=data');
+    var data = await res.json();
+    var key = 'ISBN:'+isbn;
+    var info = data[key]||{};
+    var coverUrl = 'https://covers.openlibrary.org/b/isbn/'+isbn+'-L.jpg';
+    cardioIsbnData = {
+      title: info.title||'',
+      author: info.authors&&info.authors[0]?info.authors[0].name:'',
+      isbn: isbn,
+      coverUrl: coverUrl
+    };
+    document.getElementById('cardioIsbnTitle').textContent = info.title||'Titulo no encontrado';
+    document.getElementById('cardioIsbnAuthor').textContent = cardioIsbnData.author;
+    var coverWrap = document.getElementById('cardioIsbnCoverWrap');
+    var img = new Image();
+    img.onload = function(){
+      coverWrap.innerHTML = '<img src="'+coverUrl+'" style="width:100%;height:100%;object-fit:cover">';
+      cardioIsbnData.coverLoaded = true;
+    };
+    img.onerror = function(){coverWrap.textContent='?';};
+    img.src = coverUrl+'?r='+Date.now();
+    var resultDiv = document.getElementById('cardioIsbnResult');
+    resultDiv.style.display = 'flex';
+    st.style.color='var(--green)';st.textContent='Encontrado';
+  }catch(e){
+    st.style.color='var(--red)';st.textContent='Error de conexion';
+  }
+  btn.textContent='Buscar';btn.disabled=false;
+}
+
+function applyCardioIsbn(){
+  if(!cardioIsbnData)return;
+  if(cardioIsbnData.title) document.getElementById('cardioBook').value = cardioIsbnData.title;
+  if(cardioIsbnData.author) document.getElementById('cardioAuthor').value = cardioIsbnData.author;
+  if(cardioIsbnData.coverLoaded){
+    var img = new Image();
+    img.crossOrigin='anonymous';
+    img.onload = function(){
+      try{
+        var cv = document.createElement('canvas');
+        cv.width = img.naturalWidth||300;
+        cv.height = img.naturalHeight||400;
+        cv.getContext('2d').drawImage(img,0,0);
+        state.coverData['cardioBook'] = cv.toDataURL('image/jpeg',.85);
+      }catch(e){
+        state.coverData['cardioBook'] = cardioIsbnData.coverUrl;
+      }
+      showCardioCover();save();
+    };
+    img.src = cardioIsbnData.coverUrl+'?r='+Date.now();
+  }
+  saveCardio();
+  document.getElementById('cardioIsbnResult').style.display='none';
+  showToast('Libro de cardiologia actualizado');
+}
+
+function setCardioCover(e){
+  var file = e.target.files[0];if(!file)return;
+  var r = new FileReader();
+  r.onload = function(ev){
+    state.coverData['cardioBook'] = ev.target.result;
+    showCardioCover();save();
+  };
+  r.readAsDataURL(file);
+}
+
+function showCardioCover(){
+  var cover = state.coverData['cardioBook'];
+  var img = document.getElementById('cardioCoverImg');
+  var em = document.getElementById('cardioCoverEmoji');
+  if(cover&&img){img.src=cover;img.style.display='block';if(em)em.style.display='none';}
+  else if(img){img.style.display='none';if(em){em.style.display='block';}}
+}
+
+// ══ YOUTUBE HELPERS ══
+function ytId(u){
+  if(!u)return null;
+  var m=u.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+  return m?m[1]:null;
+}
+function ytThumb(u){var id=ytId(u);return id?'https://img.youtube.com/vi/'+id+'/mqdefault.jpg':null;}
+function ytEmbed(u){var id=ytId(u);return id?'https://www.youtube.com/embed/'+id:null;}
+
+
 window.addEventListener('DOMContentLoaded',()=>{
   updateDate();updateDayChip();
   [['bookStars','bRating'],['filmStars','fRating'],['serieStars','srRating'],['gameStars','gRating']].forEach(([c,h])=>initStars(c,h));
   if(state.cardioBook)document.getElementById('cardioBook').value=state.cardioBook;
+  var authorEl=document.getElementById('cardioAuthor');if(authorEl&&state.cardioAuthor)authorEl.value=state.cardioAuthor;
+  if(typeof showCardioCover==='function')showCardioCover();
   if(state.cardioArea)document.getElementById('cardioArea').value=state.cardioArea;
   if(state.cardioOnline)document.getElementById('cardioOnline').value=state.cardioOnline;
   if(state.mathBook)document.getElementById('mathBook').value=state.mathBook;
